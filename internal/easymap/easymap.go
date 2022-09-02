@@ -1,9 +1,11 @@
 package easymap
 
 import (
+	"bytes"
 	"fmt"
 	"go/ast"
 	"go/parser"
+	"go/printer"
 	"go/token"
 	"io/fs"
 	"path"
@@ -78,4 +80,14 @@ func GetPackageFiles(source ProcessFile) ([]*ast.File, error) {
 	}
 
 	return files, nil
+}
+
+func FileToString(file *ast.File) (string, error) {
+	var bResult bytes.Buffer
+	err := printer.Fprint(&bResult, token.NewFileSet(), file)
+	if err != nil {
+		return "", err
+	}
+
+	return bResult.String(), nil
 }

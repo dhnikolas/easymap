@@ -26,6 +26,12 @@ func main() {
 				Usage:   "copy struct (example: easymap copy /path/to/file/main.go:SomeStruct NewStructName)",
 				Action:  easyMapApp.Copy,
 			},
+			{
+				Name:    "copygen",
+				Aliases: []string{"cg"},
+				Usage:   "copy struct (example: easymap copygen /path/to/file/main.go:SomeStruct NewStructName)",
+				Action:  easyMapApp.CopyGen,
+			},
 		},
 	}
 

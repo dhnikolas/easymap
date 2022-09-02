@@ -1,22 +1,20 @@
 package easymap
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"go/ast"
 	"go/parser"
-	"go/printer"
 	"go/token"
 
 	"golang.org/x/tools/go/ast/inspector"
 )
 
-func CopyStruct(source ProcessFile, newName string) (string, error) {
+func CopyStruct(source ProcessFile, newName string) (*ast.File, error) {
 
 	files, err := GetPackageFiles(source)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	decls := GetStruct(files, source.StructName)
 	resultFile := &ast.File{Name: &ast.Ident{
@@ -53,19 +51,10 @@ func CopyStruct(source ProcessFile, newName string) (string, error) {
 			}
 			fields = append(fields, field)
 		}
-
 		structType.Fields.List = fields
-
 		resultFile.Decls = append(resultFile.Decls, decl)
 	}
-
-	var bResult bytes.Buffer
-	err = printer.Fprint(&bResult, token.NewFileSet(), resultFile)
-	if err != nil {
-		return "", err
-	}
-
-	return bResult.String(), nil
+	return resultFile, nil
 }
 
 func GetStruct(files []*ast.File, structName string) []ast.Decl {

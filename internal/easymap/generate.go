@@ -6,24 +6,13 @@ import (
 	"fmt"
 	"go/ast"
 	"go/parser"
-	"go/printer"
 	"go/token"
 	"text/template"
 
 	"golang.org/x/tools/go/ast/inspector"
 )
 
-func Generate(inFileInfo, outFileInfo ProcessFile) (string, error) {
-
-	inFile, err := Scan(inFileInfo)
-	if err != nil {
-		return "", fmt.Errorf("In File error %s ", err)
-	}
-
-	outFile, err := Scan(outFileInfo)
-	if err != nil {
-		return "", fmt.Errorf("Out File error %s ", err)
-	}
+func Generate(inFile, outFile *StructField) (string, error) {
 
 	commonStruct := GetCommonStruct(outFile, inFile)
 
@@ -42,12 +31,12 @@ func Generate(inFileInfo, outFileInfo ProcessFile) (string, error) {
 		astOutFile.Decls = append(astOutFile.Decls, decl)
 	}
 
-	var b bytes.Buffer
-	err = printer.Fprint(&b, token.NewFileSet(), astOutFile)
+	stringResult, err := FileToString(astOutFile)
+
 	if err != nil {
-		return "", fmt.Errorf("Fprint error %s ", err)
+		return "", err
 	}
-	return b.String(), nil
+	return stringResult, nil
 }
 
 func Scan(source ProcessFile) (*StructField, error) {
@@ -160,7 +149,7 @@ func GenerateMainTemplate(s *StructField, inStructType string) []byte {
 	import "fmt"
 	{{$nameIn:=.NameIn}}
 	{{$structName:=.NameIn}}
-	func Mapping (in *{{.InStructType}}) *{{.StructType}} {
+	func MapTo{{.StructType}} (in *{{.InStructType}}) *{{.StructType}} {
 		out := &{{.StructType}}{
 			{{range $field := .ListScalarFields -}}
 				{{$field.Name}}: in.{{$field.Name}},
