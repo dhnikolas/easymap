@@ -8,36 +8,15 @@ import (
 	"go/parser"
 	"go/printer"
 	"go/token"
-	"io/fs"
-	"path"
 
 	"golang.org/x/tools/go/ast/inspector"
 )
 
 func CopyStruct(source ProcessFile, newName string) (string, error) {
 
-	dirPath := path.Dir(source.FullPath)
-	fmt.Println(dirPath)
-
-	packageName, err := GetPackageName(source.FullPath)
+	files, err := GetPackageFiles(source)
 	if err != nil {
 		return "", err
-	}
-
-	pkgs, err := parser.ParseDir(token.NewFileSet(), dirPath, func(info fs.FileInfo) bool {
-		return true
-	}, parser.ParseComments)
-	if err != nil {
-		return "", fmt.Errorf("Error parse dir %s ", err)
-	}
-
-	currentPackage, ok := pkgs[packageName]
-	if !ok {
-		return "", fmt.Errorf("Package not found %s ", packageName)
-	}
-	var files []*ast.File
-	for _, f := range currentPackage.Files {
-		files = append(files, f)
 	}
 	decls := GetStruct(files, source.StructName)
 	resultFile := &ast.File{Name: &ast.Ident{

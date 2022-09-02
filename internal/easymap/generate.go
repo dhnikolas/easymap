@@ -8,7 +8,6 @@ import (
 	"go/parser"
 	"go/printer"
 	"go/token"
-	"log"
 	"text/template"
 
 	"golang.org/x/tools/go/ast/inspector"
@@ -16,12 +15,12 @@ import (
 
 func Generate(inFileInfo, outFileInfo ProcessFile) (string, error) {
 
-	inFile, err := ScanStruct(inFileInfo)
+	inFile, err := Scan(inFileInfo)
 	if err != nil {
 		return "", fmt.Errorf("In File error %s ", err)
 	}
 
-	outFile, err := ScanStruct(outFileInfo)
+	outFile, err := Scan(outFileInfo)
 	if err != nil {
 		return "", fmt.Errorf("Out File error %s ", err)
 	}
@@ -51,13 +50,22 @@ func Generate(inFileInfo, outFileInfo ProcessFile) (string, error) {
 	return b.String(), nil
 }
 
-func ScanStruct(outFile ProcessFile) (*StructField, error) {
-	astInFile, err := parser.ParseFile(token.NewFileSet(), outFile.FullPath, nil, parser.ParseComments)
+func Scan(source ProcessFile) (*StructField, error) {
+	files, err := GetPackageFiles(source)
 	if err != nil {
-		log.Fatalf("parse file: %v", err)
+		return nil, err
 	}
 
-	i := inspector.New([]*ast.File{astInFile})
+	structField, err := ScanStruct(files, source.StructName, source.FieldName)
+	if err != nil {
+		return nil, err
+	}
+	return structField, nil
+}
+
+func ScanStruct(files []*ast.File, structName, fieldName string) (*StructField, error) {
+
+	i := inspector.New(files)
 	iFilter := []ast.Node{
 		&ast.GenDecl{},
 	}
@@ -75,7 +83,7 @@ func ScanStruct(outFile ProcessFile) (*StructField, error) {
 		if !ok {
 			return false
 		}
-		if typeSpec.Name.Name != outFile.StructName {
+		if typeSpec.Name.Name != structName {
 			return false
 		}
 		genTask = &Repository{
@@ -85,13 +93,13 @@ func ScanStruct(outFile ProcessFile) (*StructField, error) {
 		return false
 	})
 	if genTask == nil {
-		return nil, errors.New("Struct not exist " + outFile.StructName)
+		return nil, errors.New("Struct not exist " + structName)
 	}
 
 	currentStruct := &StructField{}
-	currentStruct.Name = outFile.StructName
-	currentStruct.NameIn = outFile.FieldName
-	currentStruct.StructType = outFile.StructName
+	currentStruct.Name = structName
+	currentStruct.NameIn = fieldName
+	currentStruct.StructType = structName
 
 	for _, f := range genTask.structType.Fields.List {
 		if !f.Names[0].IsExported() {
@@ -104,12 +112,7 @@ func ScanStruct(outFile ProcessFile) (*StructField, error) {
 				FieldType: ident.Name,
 			})
 		case *ast.StarExpr:
-			processFile := ProcessFile{
-				FullPath:   outFile.FullPath,
-				StructName: fmt.Sprint(ident.X),
-				FieldName:  f.Names[0].Name,
-			}
-			newStruct, err := ScanStruct(processFile)
+			newStruct, err := ScanStruct(files, fmt.Sprint(ident.X), f.Names[0].Name)
 			if err != nil {
 				continue
 			}
@@ -125,12 +128,7 @@ func ScanStruct(outFile ProcessFile) (*StructField, error) {
 				})
 
 			case *ast.StarExpr:
-				processFile := ProcessFile{
-					FullPath:   outFile.FullPath,
-					StructName: fmt.Sprint(arrayType.X),
-					FieldName:  f.Names[0].Name,
-				}
-				newStruct, err := ScanStruct(processFile)
+				newStruct, err := ScanStruct(files, fmt.Sprint(arrayType.X), f.Names[0].Name)
 				if err != nil {
 					continue
 				}

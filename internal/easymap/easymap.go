@@ -1,6 +1,13 @@
 package easymap
 
-import "go/ast"
+import (
+	"fmt"
+	"go/ast"
+	"go/parser"
+	"go/token"
+	"io/fs"
+	"path"
+)
 
 const (
 	PREFIX_TYPE_POINTER PrefixType = 0
@@ -43,4 +50,32 @@ type StructField struct {
 type ScalarField struct {
 	Name      string
 	FieldType string
+}
+
+func GetPackageFiles(source ProcessFile) ([]*ast.File, error) {
+	dirPath := path.Dir(source.FullPath)
+	fmt.Println(dirPath)
+
+	packageName, err := GetPackageName(source.FullPath)
+	if err != nil {
+		return nil, err
+	}
+
+	pkgs, err := parser.ParseDir(token.NewFileSet(), dirPath, func(info fs.FileInfo) bool {
+		return true
+	}, parser.ParseComments)
+	if err != nil {
+		return nil, fmt.Errorf("Error parse dir %s ", err)
+	}
+
+	currentPackage, ok := pkgs[packageName]
+	if !ok {
+		return nil, fmt.Errorf("Package not found %s ", packageName)
+	}
+	var files []*ast.File
+	for _, f := range currentPackage.Files {
+		files = append(files, f)
+	}
+
+	return files, nil
 }
