@@ -12,14 +12,14 @@ import (
 	"golang.org/x/tools/go/ast/inspector"
 )
 
-func Generate(inFile, outFile *StructField) (string, error) {
+func Generate(inFile, outFile *StructField) (*ast.File, error) {
 
 	commonStruct := GetCommonStruct(outFile, inFile)
 
 	result := GenerateMainTemplate(commonStruct, inFile.StructType)
 	templateAst, err := parser.ParseFile(token.NewFileSet(), "", result, parser.ParseComments)
 	if err != nil {
-		return "", fmt.Errorf("Parse file error %s ", err)
+		return nil, fmt.Errorf("Parse file error %s ", err)
 	}
 
 	astOutFile := &ast.File{Name: &ast.Ident{
@@ -31,12 +31,7 @@ func Generate(inFile, outFile *StructField) (string, error) {
 		astOutFile.Decls = append(astOutFile.Decls, decl)
 	}
 
-	stringResult, err := FileToString(astOutFile)
-
-	if err != nil {
-		return "", err
-	}
-	return stringResult, nil
+	return astOutFile, nil
 }
 
 func Scan(source ProcessFile) (*StructField, error) {

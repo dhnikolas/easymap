@@ -3,7 +3,6 @@ package command
 import (
 	"errors"
 	"fmt"
-	"go/ast"
 	"strings"
 
 	"github.com/dhnikolas/easymap/internal/easymap"
@@ -56,7 +55,12 @@ func (a *Application) Gen(cCtx *cli.Context) error {
 		return err
 	}
 
-	fmt.Println(result)
+	resultString, err := easymap.FileToString(result)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println(resultString)
 
 	return nil
 }
@@ -105,41 +109,17 @@ func (a *Application) CopyGen(cCtx *cli.Context) error {
 		StructName: sourceStructName,
 	}
 
-	copyFile, err := easymap.CopyStruct(processFile, newStructName)
+	resultFile, err := easymap.CopyGen(processFile, newStructName)
 	if err != nil {
 		return err
 	}
 
-	var currentStructName string
-	if len(newStructName) > 0 {
-		currentStructName = newStructName
-	} else {
-		currentStructName = sourceStructName
-	}
-
-	inFileStruct, err := easymap.Scan(processFile)
-	if err != nil {
-		return fmt.Errorf("In File error %s ", err)
-	}
-
-	copyStruct, err := easymap.ScanStruct([]*ast.File{copyFile}, currentStructName, "")
+	resultString, err := easymap.FileToString(resultFile)
 	if err != nil {
 		return err
 	}
 
-	mapping, err := easymap.Generate(inFileStruct, copyStruct)
-	if err != nil {
-		return err
-	}
-
-	copyFileString, err := easymap.FileToString(copyFile)
-	if err != nil {
-		return err
-	}
-
-	fmt.Println(copyFileString)
-
-	fmt.Println(mapping)
+	fmt.Println(resultString)
 
 	return nil
 }
