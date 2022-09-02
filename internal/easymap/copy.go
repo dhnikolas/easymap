@@ -2,18 +2,44 @@ package easymap
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/printer"
 	"go/token"
-	"log"
+	"io/fs"
+	"path"
 
 	"golang.org/x/tools/go/ast/inspector"
 )
 
-func CopyStruct(source ProcessFile, newName string) {
-	decls := GetStruct(source)
+func CopyStruct(source ProcessFile, newName string) (string, error) {
+
+	dirPath := path.Dir(source.FullPath)
+	fmt.Println(dirPath)
+
+	packageName, err := GetPackageName(source.FullPath)
+	if err != nil {
+		return "", err
+	}
+
+	pkgs, err := parser.ParseDir(token.NewFileSet(), dirPath, func(info fs.FileInfo) bool {
+		return true
+	}, parser.ParseComments)
+	if err != nil {
+		return "", fmt.Errorf("Error parse dir %s ", err)
+	}
+
+	currentPackage, ok := pkgs[packageName]
+	if !ok {
+		return "", fmt.Errorf("Package not found %s ", packageName)
+	}
+	var files []*ast.File
+	for _, f := range currentPackage.Files {
+		files = append(files, f)
+	}
+	decls := GetStruct(files, source.StructName)
 	resultFile := &ast.File{Name: &ast.Ident{
 		NamePos: 0,
 		Name:    "main",
@@ -36,23 +62,36 @@ func CopyStruct(source ProcessFile, newName string) {
 			}
 		}
 
+		structType, ok := typeSpec.Type.(*ast.StructType)
+		if !ok {
+			continue
+		}
+
+		var fields []*ast.Field
+		for _, field := range structType.Fields.List {
+			if !field.Names[0].IsExported() {
+				continue
+			}
+			fields = append(fields, field)
+		}
+
+		structType.Fields.List = fields
+
 		resultFile.Decls = append(resultFile.Decls, decl)
 	}
 
 	var bResult bytes.Buffer
-	printer.Fprint(&bResult, token.NewFileSet(), resultFile)
-	fmt.Println(bResult.String())
-}
-
-func GetStruct(source ProcessFile) []ast.Decl {
-	astInFile, err := parser.ParseFile(token.NewFileSet(), source.FullPath, nil, parser.ParseComments)
+	err = printer.Fprint(&bResult, token.NewFileSet(), resultFile)
 	if err != nil {
-		log.Fatalf("parse file: %v", err)
+		return "", err
 	}
 
-	ast.FileExports(astInFile)
+	return bResult.String(), nil
+}
 
-	i := inspector.New([]*ast.File{astInFile})
+func GetStruct(files []*ast.File, structName string) []ast.Decl {
+
+	i := inspector.New(files)
 	iFilter := []ast.Node{
 		&ast.GenDecl{},
 	}
@@ -73,7 +112,7 @@ func GetStruct(source ProcessFile) []ast.Decl {
 		if !ok {
 			return false
 		}
-		if typeSpec.Name.Name != source.StructName {
+		if typeSpec.Name.Name != structName {
 			return false
 		}
 		structType = st
@@ -96,25 +135,26 @@ func GetStruct(source ProcessFile) []ast.Decl {
 		}
 		switch ident := f.Type.(type) {
 		case *ast.StarExpr:
-			processFile := ProcessFile{
-				FullPath:   source.FullPath,
-				StructName: fmt.Sprint(ident.X),
-				FieldName:  f.Names[0].Name,
-			}
-			decls = append(decls, GetStruct(processFile)...)
-
+			decls = append(decls, GetStruct(files, fmt.Sprint(ident.X))...)
 		case *ast.ArrayType:
 			switch arrayType := ident.Elt.(type) {
 			case *ast.StarExpr:
-				processFile := ProcessFile{
-					FullPath:   source.FullPath,
-					StructName: fmt.Sprint(arrayType.X),
-					FieldName:  f.Names[0].Name,
-				}
-				decls = append(decls, GetStruct(processFile)...)
+				decls = append(decls, GetStruct(files, fmt.Sprint(arrayType.X))...)
 			}
 		}
 	}
 
 	return decls
+}
+
+func GetPackageName(filePath string) (string, error) {
+	astInFile, err := parser.ParseFile(token.NewFileSet(), filePath, nil, parser.ParseComments)
+	if err != nil {
+		return "", err
+	}
+	if astInFile.Name == nil {
+		return "", errors.New("No package name in file " + filePath)
+	}
+
+	return astInFile.Name.Name, nil
 }

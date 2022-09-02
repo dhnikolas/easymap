@@ -62,10 +62,13 @@ func (a *Application) Copy(cCtx *cli.Context) error {
 
 	newStructName := cCtx.Args().Get(1)
 
-	easymap.CopyStruct(easymap.ProcessFile{
+	result, err := easymap.CopyStruct(easymap.ProcessFile{
 		FullPath:   sourceFilePath,
 		StructName: sourceStructName,
 	}, newStructName)
-
+	if err != nil {
+		return err
+	}
+	fmt.Println(result)
 	return nil
 }
