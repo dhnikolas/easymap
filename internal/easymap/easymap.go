@@ -45,11 +45,11 @@ type StructField struct {
 	PrefixType   PrefixType
 	ParentStruct *StructField
 
-	ListScalarFields []*ScalarField
+	ListScalarFields []*SimpleField
 	ListStructFields []*StructField
 }
 
-type ScalarField struct {
+type SimpleField struct {
 	Name      string
 	FieldType string
 }

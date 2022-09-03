@@ -91,9 +91,14 @@ func ScanStruct(files []*ast.File, structName, fieldName string) (*StructField, 
 		}
 		switch ident := f.Type.(type) {
 		case *ast.Ident:
-			currentStruct.ListScalarFields = append(currentStruct.ListScalarFields, &ScalarField{
+			currentStruct.ListScalarFields = append(currentStruct.ListScalarFields, &SimpleField{
 				Name:      f.Names[0].Name,
 				FieldType: ident.Name,
+			})
+		case *ast.MapType:
+			currentStruct.ListScalarFields = append(currentStruct.ListScalarFields, &SimpleField{
+				Name:      f.Names[0].Name,
+				FieldType: fmt.Sprintf("map[%s]%s", ident.Key, ident.Value),
 			})
 		case *ast.StarExpr:
 			newStruct, err := ScanStruct(files, fmt.Sprint(ident.X), f.Names[0].Name)
@@ -106,7 +111,7 @@ func ScanStruct(files []*ast.File, structName, fieldName string) (*StructField, 
 		case *ast.ArrayType:
 			switch arrayType := ident.Elt.(type) {
 			case *ast.Ident:
-				currentStruct.ListScalarFields = append(currentStruct.ListScalarFields, &ScalarField{
+				currentStruct.ListScalarFields = append(currentStruct.ListScalarFields, &SimpleField{
 					Name:      f.Names[0].Name,
 					FieldType: arrayType.Name,
 				})
