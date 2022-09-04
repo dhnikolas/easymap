@@ -26,6 +26,17 @@ const ifConditionPointerTemplate = `{{- $nameIn:=.NameIn }}
 		{{- .Content }}
 	}`
 
+const structTemplate = `{{- $nameIn:=.NameIn }}
+	{{- $structName:=.NameIn }}
+	{{- $parentInName:=.ParentInName }}
+	{{- $parentOutName:=.ParentOutName }}
+	{{$parentOutName}}{{$nameIn}} = {{.StructType}}{
+		{{ range $field := .ListSimpleFields }}
+			{{- $field.Name}}: {{$parentInName}}{{$nameIn}}.{{$field.Name}},
+		{{ end -}}
+	}
+	{{- .Content }}`
+
 const slicePointerTemplate = `{{- $nameIn:=.NameIn }}
 	{{- $structName:=.NameIn }}
 	{{- $parentInName:=.ParentInName }}

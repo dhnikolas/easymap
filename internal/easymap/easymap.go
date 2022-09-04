@@ -16,6 +16,7 @@ import (
 const (
 	PREFIX_TYPE_POINTER PrefixType = 0
 	PREFIX_TYPE_SLICE   PrefixType = 1
+	PREFIX_TYPE_STRUCT  PrefixType = 2
 )
 
 type PrefixType uint

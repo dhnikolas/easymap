@@ -17,10 +17,12 @@ func CopyStruct(source ProcessFile, newName string) (*ast.File, error) {
 		return nil, err
 	}
 	decls := GetStruct(files, source.StructName)
-	resultFile := &ast.File{Name: &ast.Ident{
-		NamePos: 0,
-		Name:    "main",
-	}}
+	resultFile := &ast.File{
+		Name: &ast.Ident{
+			NamePos: 0,
+			Name:    "main",
+		},
+	}
 
 	for _, decl := range decls {
 		genDecl := decl.(*ast.GenDecl)
@@ -102,6 +104,10 @@ func GetStruct(files []*ast.File, structName string) []ast.Decl {
 			f.Tag.Value = ""
 		}
 		switch ident := f.Type.(type) {
+		case *ast.Ident:
+			if ident.Obj != nil && ident.Obj.Kind == ast.Typ {
+				decls = append(decls, GetStruct(files, fmt.Sprint(ident.Obj.Name))...)
+			}
 		case *ast.StarExpr:
 			decls = append(decls, GetStruct(files, fmt.Sprint(ident.X))...)
 		case *ast.ArrayType:

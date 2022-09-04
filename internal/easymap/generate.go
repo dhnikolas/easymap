@@ -98,23 +98,45 @@ func ScanStruct(files []*ast.File, structName, fieldName string) (*StructField, 
 		}
 		switch ident := f.Type.(type) {
 		case *ast.Ident:
-			currentStruct.ListSimpleFields = append(currentStruct.ListSimpleFields, &SimpleField{
-				Name:      f.Names[0].Name,
-				FieldType: ident.Name,
-			})
+
+			switch {
+			case ident.Obj != nil && ident.Obj.Kind == ast.Typ:
+				newStruct, err := ScanStruct(files, fmt.Sprint(ident.Obj.Name), f.Names[0].Name)
+				if err != nil {
+					continue
+				}
+				newStruct.PrefixType = PREFIX_TYPE_STRUCT
+				newStruct.ParentStruct = currentStruct
+				currentStruct.ListStructFields = append(currentStruct.ListStructFields, newStruct)
+			default:
+				currentStruct.ListSimpleFields = append(currentStruct.ListSimpleFields, &SimpleField{
+					Name:      f.Names[0].Name,
+					FieldType: ident.Name,
+				})
+			}
+
 		case *ast.MapType:
 			currentStruct.ListSimpleFields = append(currentStruct.ListSimpleFields, &SimpleField{
 				Name:      f.Names[0].Name,
 				FieldType: fmt.Sprintf("map[%s]%s", ident.Key, ident.Value),
 			})
 		case *ast.StarExpr:
-			newStruct, err := ScanStruct(files, fmt.Sprint(ident.X), f.Names[0].Name)
-			if err != nil {
-				continue
+			switch expr := ident.X.(type) {
+			case *ast.SelectorExpr:
+				currentStruct.ListSimpleFields = append(currentStruct.ListSimpleFields, &SimpleField{
+					Name:      f.Names[0].Name,
+					FieldType: fmt.Sprintf("*%s.%s", fmt.Sprint(expr.X), expr.Sel.Name),
+				})
+			default:
+				newStruct, err := ScanStruct(files, fmt.Sprint(ident.X), f.Names[0].Name)
+				if err != nil {
+					continue
+				}
+				newStruct.PrefixType = PREFIX_TYPE_POINTER
+				newStruct.ParentStruct = currentStruct
+				currentStruct.ListStructFields = append(currentStruct.ListStructFields, newStruct)
 			}
-			newStruct.PrefixType = PREFIX_TYPE_POINTER
-			newStruct.ParentStruct = currentStruct
-			currentStruct.ListStructFields = append(currentStruct.ListStructFields, newStruct)
+
 		case *ast.ArrayType:
 			switch arrayType := ident.Elt.(type) {
 			case *ast.Ident:
@@ -184,6 +206,8 @@ func GenerateCheckTemplate(s *StructField, parentOutName, parentInName string) s
 	//Parent params
 	switch compareStruct.PrefixType {
 	case PREFIX_TYPE_POINTER:
+		fallthrough
+	case PREFIX_TYPE_STRUCT:
 		newParentInName = parentInName + s.NameIn
 		newParentOutName = parentOutName + s.NameIn
 
@@ -212,6 +236,9 @@ func GenerateCheckTemplate(s *StructField, parentOutName, parentInName string) s
 
 	case PREFIX_TYPE_SLICE:
 		templ = slicePointerTemplate
+
+	case PREFIX_TYPE_STRUCT:
+		templ = structTemplate
 	}
 
 	var b bytes.Buffer
