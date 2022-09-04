@@ -12,25 +12,32 @@ import (
 	"golang.org/x/tools/go/ast/inspector"
 )
 
-func Generate(inFile, outFile *StructField) (*ast.File, error) {
-
+func GenerateMapping(inFile, outFile *StructField) ([]byte, error) {
 	commonStruct := GetCommonStruct(outFile, inFile)
+	result := GenerateMainTemplate(commonStruct, inFile.StructType)
+	r, err := GoFmt(result)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
+}
 
+func GenerateMappingParse(inFile, outFile *StructField) (*ast.File, error) {
+	commonStruct := GetCommonStruct(outFile, inFile)
 	result := GenerateMainTemplate(commonStruct, inFile.StructType)
 	templateAst, err := parser.ParseFile(token.NewFileSet(), "", result, parser.ParseComments)
 	if err != nil {
 		return nil, fmt.Errorf("Parse file error %s ", err)
 	}
-
-	astOutFile := &ast.File{Name: &ast.Ident{
-		NamePos: 0,
-		Name:    "main",
-	}}
-
+	astOutFile := &ast.File{
+		Name: &ast.Ident{
+			NamePos: 0,
+			Name:    "main",
+		},
+	}
 	for _, decl := range templateAst.Decls {
 		astOutFile.Decls = append(astOutFile.Decls, decl)
 	}
-
 	return astOutFile, nil
 }
 
@@ -91,12 +98,12 @@ func ScanStruct(files []*ast.File, structName, fieldName string) (*StructField, 
 		}
 		switch ident := f.Type.(type) {
 		case *ast.Ident:
-			currentStruct.ListScalarFields = append(currentStruct.ListScalarFields, &SimpleField{
+			currentStruct.ListSimpleFields = append(currentStruct.ListSimpleFields, &SimpleField{
 				Name:      f.Names[0].Name,
 				FieldType: ident.Name,
 			})
 		case *ast.MapType:
-			currentStruct.ListScalarFields = append(currentStruct.ListScalarFields, &SimpleField{
+			currentStruct.ListSimpleFields = append(currentStruct.ListSimpleFields, &SimpleField{
 				Name:      f.Names[0].Name,
 				FieldType: fmt.Sprintf("map[%s]%s", ident.Key, ident.Value),
 			})
@@ -111,7 +118,7 @@ func ScanStruct(files []*ast.File, structName, fieldName string) (*StructField, 
 		case *ast.ArrayType:
 			switch arrayType := ident.Elt.(type) {
 			case *ast.Ident:
-				currentStruct.ListScalarFields = append(currentStruct.ListScalarFields, &SimpleField{
+				currentStruct.ListSimpleFields = append(currentStruct.ListSimpleFields, &SimpleField{
 					Name:      f.Names[0].Name,
 					FieldType: arrayType.Name,
 				})
@@ -144,21 +151,7 @@ func GenerateMainTemplate(s *StructField, inStructType string) []byte {
 
 	c.Content = content
 
-	templ := `
-	package main
-	import "fmt"
-	{{$nameIn:=.NameIn}}
-	{{$structName:=.NameIn}}
-	func MapTo{{.StructType}} (in *{{.InStructType}}) *{{.StructType}} {
-		out := &{{.StructType}}{
-			{{range $field := .ListScalarFields -}}
-				{{$field.Name}}: in.{{$field.Name}},
-			{{- end -}}   
-		}
-		{{- .Content  }} 	
-
-		return out
-	}`
+	templ := mappingTemplate
 
 	var b bytes.Buffer
 	t := template.Must(template.New("").Parse(templ))
@@ -239,10 +232,10 @@ func GetCommonStruct(outStruct *StructField, inStruct *StructField) *StructField
 	resultStruct.PrefixType = outStruct.PrefixType
 	resultStruct.ParentStruct = outStruct.ParentStruct
 
-	for _, scalarField := range outStruct.ListScalarFields {
-		for _, inField := range inStruct.ListScalarFields {
+	for _, scalarField := range outStruct.ListSimpleFields {
+		for _, inField := range inStruct.ListSimpleFields {
 			if scalarField.Name == inField.Name && scalarField.FieldType == inField.FieldType {
-				resultStruct.ListScalarFields = append(resultStruct.ListScalarFields, scalarField)
+				resultStruct.ListSimpleFields = append(resultStruct.ListSimpleFields, scalarField)
 			}
 		}
 	}

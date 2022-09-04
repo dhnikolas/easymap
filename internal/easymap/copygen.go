@@ -3,14 +3,13 @@ package easymap
 import (
 	"fmt"
 	"go/ast"
-	"go/token"
 )
 
-func CopyGen(processFile ProcessFile, newStructName string) (*ast.File, error) {
+func CopyGen(processFile ProcessFile, newStructName string) (string, string, error) {
 
 	copyFile, err := CopyStruct(processFile, newStructName)
 	if err != nil {
-		return nil, err
+		return "", "", err
 	}
 	var currentStructName string
 	if len(newStructName) > 0 {
@@ -21,29 +20,23 @@ func CopyGen(processFile ProcessFile, newStructName string) (*ast.File, error) {
 
 	inFileStruct, err := Scan(processFile)
 	if err != nil {
-		return nil, fmt.Errorf("In File error %s ", err)
+		return "", "", fmt.Errorf("In File error %s ", err)
 	}
 
 	copyStruct, err := ScanStruct([]*ast.File{copyFile}, currentStructName, "")
 	if err != nil {
-		return nil, err
+		return "", "", err
 	}
 
-	mapping, err := Generate(inFileStruct, copyStruct)
+	mapping, err := GenerateMapping(inFileStruct, copyStruct)
 	if err != nil {
-		return nil, err
+		return "", "", err
 	}
 
-	for _, decl := range mapping.Decls {
-		genDecl, ok := decl.(*ast.GenDecl)
-		if ok {
-			if genDecl.Tok == token.IMPORT {
-				continue
-			}
-		}
-
-		copyFile.Decls = append(copyFile.Decls, decl)
+	copyFileString, err := FileToString(copyFile)
+	if err != nil {
+		return "", "", err
 	}
 
-	return copyFile, nil
+	return copyFileString, string(mapping), nil
 }

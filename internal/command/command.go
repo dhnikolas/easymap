@@ -50,17 +50,12 @@ func (a *Application) Gen(cCtx *cli.Context) error {
 		return fmt.Errorf("Out File error %s ", err)
 	}
 
-	result, err := easymap.Generate(inFileStruct, outFileStruct)
+	result, err := easymap.GenerateMapping(inFileStruct, outFileStruct)
 	if err != nil {
 		return err
 	}
 
-	resultString, err := easymap.FileToString(result)
-	if err != nil {
-		return err
-	}
-
-	fmt.Println(resultString)
+	fmt.Println(string(result))
 
 	return nil
 }
@@ -109,17 +104,13 @@ func (a *Application) CopyGen(cCtx *cli.Context) error {
 		StructName: sourceStructName,
 	}
 
-	resultFile, err := easymap.CopyGen(processFile, newStructName)
+	copyFile, mappingFile, err := easymap.CopyGen(processFile, newStructName)
 	if err != nil {
 		return err
 	}
 
-	resultString, err := easymap.FileToString(resultFile)
-	if err != nil {
-		return err
-	}
-
-	fmt.Println(resultString)
+	fmt.Print(strings.ReplaceAll(copyFile, "package main", ""))
+	fmt.Print(strings.ReplaceAll(mappingFile, "package main", ""))
 
 	return nil
 }

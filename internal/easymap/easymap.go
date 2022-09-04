@@ -9,6 +9,8 @@ import (
 	"go/token"
 	"io/fs"
 	"path"
+
+	"github.com/dhnikolas/easymap/pkg/gofmt"
 )
 
 const (
@@ -45,7 +47,7 @@ type StructField struct {
 	PrefixType   PrefixType
 	ParentStruct *StructField
 
-	ListScalarFields []*SimpleField
+	ListSimpleFields []*SimpleField
 	ListStructFields []*StructField
 }
 
@@ -90,4 +92,15 @@ func FileToString(file *ast.File) (string, error) {
 	}
 
 	return bResult.String(), nil
+}
+
+func GoFmt(body []byte) ([]byte, error) {
+	r := bytes.NewReader(body)
+	var bResult bytes.Buffer
+	err := gofmt.ProcessGofmt("new.go", r, &bResult, false)
+	if err != nil {
+		return nil, err
+	}
+
+	return bResult.Bytes(), nil
 }
