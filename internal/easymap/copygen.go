@@ -6,7 +6,7 @@ import (
 )
 
 func CopyGen(processFile ProcessFile, newStructName string) (string, string, error) {
-
+	
 	copyFile, err := CopyStruct(processFile, newStructName)
 	if err != nil {
 		return "", "", err
@@ -17,26 +17,28 @@ func CopyGen(processFile ProcessFile, newStructName string) (string, string, err
 	} else {
 		currentStructName = processFile.StructName
 	}
-
-	inFileStruct, err := Scan(processFile)
+	
+	inFileStruct, packageName, err := Scan(processFile)
 	if err != nil {
 		return "", "", fmt.Errorf("In File error %s ", err)
 	}
-
-	copyStruct, err := ScanStruct([]*ast.File{copyFile}, currentStructName, "")
+	
+	outFile, err := ScanStruct([]*ast.File{copyFile}, currentStructName, "")
 	if err != nil {
 		return "", "", err
 	}
-
-	mapping, err := GenerateMapping(inFileStruct, copyStruct)
+	
+	commonStruct := GetCommonStruct(outFile, inFileStruct)
+	result := GenerateMainTemplate(commonStruct, packageName+"."+inFileStruct.StructType)
+	mapping, err := GoFmt(result)
 	if err != nil {
 		return "", "", err
 	}
-
+	
 	copyFileString, err := FileToString(copyFile)
 	if err != nil {
 		return "", "", err
 	}
-
+	
 	return copyFileString, string(mapping), nil
 }

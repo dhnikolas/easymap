@@ -1,0 +1,140 @@
+
+func TestCopyGen(t *testing.T) {
+	inStruct := in.GenInTestStruct()
+	out := MapToOut(inStruct)
+
+	if out.Name != in.TestData["Name"] {
+		t.Errorf("Field Name error Need:%s, Exist: %s", in.TestData["Name"], out.Name)
+	}
+
+	if out.Age != 2 {
+		t.Errorf("Field Age error Need:%d, Exist: %d", 2, out.Age)
+	}
+
+	if len(out.Users) != 1 {
+		t.Errorf("Field Users error Need:%d, Exist: %d", 1, len(out.Users))
+	}
+
+	if out.Users[0] != 2 {
+		t.Errorf("Field Users Value error Need:%d, Exist: %d", 2, out.Users[0])
+		return
+	}
+
+	if len(out.Disks) != 1 {
+		t.Errorf("Field Disks error Need:%d, Exist: %d", 1, len(out.Disks))
+		return
+	}
+
+	if out.Disks[0].Size != 2 {
+		t.Errorf("Field Disks_Size error Need:%d, Exist: %d", 2, out.Disks[0].Size)
+		return
+	}
+
+	if out.Disks[0].Description != in.TestData["Disks_Description"] {
+		t.Errorf("Field Disks_Description error Need:%s, Exist: %s", in.TestData["Disks_Description"], out.Disks[0].Description)
+		return
+	}
+
+	if len(out.Disks[0].Zone) != 2 {
+		t.Errorf("Field Disks_Zone len error Need:%d, Exist: %d", 2, len(out.Disks[0].Zone))
+		return
+	}
+
+	if out.Disks[0].Zone[0].Number != 2 {
+		t.Errorf("Field Disks_Zone1_City error Need:%d, Exist: %d", 2, out.Disks[0].Zone[0].Number)
+		return
+	}
+
+	if out.Disks[0].Zone[0].City != in.TestData["Disks_Zone1_City"] {
+		t.Errorf("Field Disks_Zone1_City error Need:%s, Exist: %s", in.TestData["Disks_Zone1_City"], out.Disks[0].Zone[0].City)
+		return
+	}
+
+	if out.Disks[0].Zone[0].MTU != in.TestData["Disks_Zone1_Mtu"] {
+		t.Errorf("Field Disks_Zone1_Mtu error Need:%s, Exist: %s", in.TestData["Disks_Zone1_Mtu"], out.Disks[0].Zone[0].MTU)
+		return
+	}
+
+	if out.Disks[0].Zone[0].Config != nil {
+		t.Errorf("Field Disks_Zone1_Config error Need:%s, Exist: %v", "nil", out.Disks[0].Zone[0].Config)
+		return
+	}
+
+	if out.Disks[0].Zone[1].Number != 2 {
+		t.Errorf("Field Disks_Zone2_City error Need:%d, Exist: %d", 2, out.Disks[0].Zone[1].Number)
+		return
+	}
+
+	if out.Disks[0].Zone[1].City != in.TestData["Disks_Zone2_City"] {
+		t.Errorf("Field Disks_Zone2_City error Need:%s, Exist: %s", in.TestData["Disks_Zone2_City"], out.Disks[0].Zone[1].City)
+		return
+	}
+
+	if out.Disks[0].Zone[1].MTU != in.TestData["Disks_Zone2_Mtu"] {
+		t.Errorf("Field Disks_Zone2_Mtu error Need:%s, Exist: %s", in.TestData["Disks_Zone2_Mtu"], out.Disks[0].Zone[1].MTU)
+		return
+	}
+
+	if len(out.Disks[0].Zone[1].Config) != 1 {
+		t.Errorf("Field Disks_Zone2_Config len error Need:%d, Exist: %d", 1, len(out.Disks[0].Zone[1].Config))
+		return
+	}
+
+	if out.Disks[0].Zone[1].Config[0].TTL != in.TestData["Disks_Zone2_Config_TTL"] {
+		t.Errorf("Field Disks_Zone2_Config_TTL error Need:%s, Exist: %s", in.TestData["Disks_Zone2_Config_TTL"], out.Disks[0].Zone[1].Config[0].TTL)
+		return
+	}
+
+	if out.Disks[0].Zone[1].Config[0].Timeout != 2 {
+		t.Errorf("Field Disks_Zone2_Config_Timeout error Need:%d, Exist: %d", 2, out.Disks[0].Zone[1].Config[0].Timeout)
+		return
+	}
+
+	if len(out.Disks[0].Zone[1].Config[0].Simple) != 1 {
+		t.Errorf("Field Disks_Zone2_Config_Simple len error Need:%d, Exist: %d", 1, len(out.Disks[0].Zone[1].Config[0].Simple))
+		return
+	}
+
+	if out.Disks[0].Zone[1].Config[0].Simple[0].Main != in.TestData["Disks_Zone2_Config_Simple1_Main"] {
+		t.Errorf("Field Disks_Zone2_Config_Simple_Main  error Need:%s, Exist: %s",
+			in.TestData["Disks_Zone2_Config_Simple1_Main"],
+			out.Disks[0].Zone[1].Config[0].Simple[0].Main)
+			return
+	}
+
+	if out.Disks[0].Zone[1].Config[0].Simple[0].Additional.Column != in.TestData["Disks_Zone2_Config_Simple1_Additional_Column"] {
+		t.Errorf("Field Disks_Zone2_Config_Simple1_Additional_Column  error Need:%s, Exist: %s",
+			in.TestData["Disks_Zone2_Config_Simple1_Additional_Column"],
+			out.Disks[0].Zone[1].Config[0].Simple[0].Additional.Column)
+			return
+	}
+
+	if len(out.Disks[0].Zone[1].Config[0].Simple[0].Additional.Rows) != 1 {
+		t.Errorf("Field Disks_Zone2_Config_Simple1_Additional_Rows len  error Need:%d, Exist: %d",
+			1,
+			len(out.Disks[0].Zone[1].Config[0].Simple[0].Additional.Rows))
+			return
+	}
+
+	if out.Disks[0].Zone[1].Config[0].Simple[0].Additional.Rows[0].Number != 2 {
+		t.Errorf("Field Disks_Zone2_Config_Simple1_Additional_Rows1_Number len  error Need:%d, Exist: %d",
+			2,
+			out.Disks[0].Zone[1].Config[0].Simple[0].Additional.Rows[0].Number)
+			return
+	}
+
+	if out.Meta["2"] != "2" {
+	    t.Errorf("Meta error Need: %s. Exist: %s", "2", out.Meta["2"])
+	    return
+	}
+
+    metaValue := reflect.ValueOf(out).Elem()
+
+    for _, name := range []string{"nonpublic"} {
+        field := metaValue.FieldByName(name)
+        if field != (reflect.Value{}) {
+            t.Errorf("Field %s exist in struct. Need not exist", name)
+        }
+    }
+
+}

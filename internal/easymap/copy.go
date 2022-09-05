@@ -6,13 +6,13 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
-
+	
 	"golang.org/x/tools/go/ast/inspector"
 )
 
 func CopyStruct(source ProcessFile, newName string) (*ast.File, error) {
-
-	files, err := GetPackageFiles(source)
+	
+	files, _, err := GetPackageFiles(source)
 	if err != nil {
 		return nil, err
 	}
@@ -23,29 +23,29 @@ func CopyStruct(source ProcessFile, newName string) (*ast.File, error) {
 			Name:    "main",
 		},
 	}
-
+	
 	for _, decl := range decls {
 		genDecl := decl.(*ast.GenDecl)
 		if genDecl == nil {
 			continue
 		}
-
+		
 		typeSpec, ok := genDecl.Specs[0].(*ast.TypeSpec)
 		if !ok {
 			continue
 		}
-
+		
 		if len(newName) > 0 {
 			if typeSpec.Name.Name == source.StructName {
 				typeSpec.Name.Name = newName
 			}
 		}
-
+		
 		structType, ok := typeSpec.Type.(*ast.StructType)
 		if !ok {
 			continue
 		}
-
+		
 		var fields []*ast.Field
 		for _, field := range structType.Fields.List {
 			if !field.Names[0].IsExported() {
@@ -60,14 +60,14 @@ func CopyStruct(source ProcessFile, newName string) (*ast.File, error) {
 }
 
 func GetStruct(files []*ast.File, structName string) []ast.Decl {
-
+	
 	i := inspector.New(files)
 	iFilter := []ast.Node{
 		&ast.GenDecl{},
 	}
-
+	
 	var structType *ast.StructType
-
+	
 	var decls []ast.Decl
 	i.Nodes(iFilter, func(node ast.Node, push bool) (proceed bool) {
 		genDecl := node.(*ast.GenDecl)
@@ -86,16 +86,16 @@ func GetStruct(files []*ast.File, structName string) []ast.Decl {
 			return false
 		}
 		structType = st
-
+		
 		decls = append(decls, genDecl)
-
+		
 		return false
 	})
-
+	
 	if structType == nil {
 		return decls
 	}
-
+	
 	for _, f := range structType.Fields.List {
 		if !f.Names[0].IsExported() {
 			continue
@@ -117,7 +117,7 @@ func GetStruct(files []*ast.File, structName string) []ast.Decl {
 			}
 		}
 	}
-
+	
 	return decls
 }
 
@@ -129,6 +129,6 @@ func GetPackageName(filePath string) (string, error) {
 	if astInFile.Name == nil {
 		return "", errors.New("No package name in file " + filePath)
 	}
-
+	
 	return astInFile.Name.Name, nil
 }

@@ -9,7 +9,7 @@ import (
 	"go/token"
 	"io/fs"
 	"path"
-
+	
 	"github.com/dhnikolas/easymap/pkg/gofmt"
 )
 
@@ -44,10 +44,10 @@ type StructField struct {
 	Name       string
 	NameIn     string
 	StructType string
-
+	
 	PrefixType   PrefixType
 	ParentStruct *StructField
-
+	
 	ListSimpleFields []*SimpleField
 	ListStructFields []*StructField
 }
@@ -57,32 +57,31 @@ type SimpleField struct {
 	FieldType string
 }
 
-func GetPackageFiles(source ProcessFile) ([]*ast.File, error) {
+func GetPackageFiles(source ProcessFile) ([]*ast.File, string, error) {
 	dirPath := path.Dir(source.FullPath)
-	fmt.Println(dirPath)
-
+	
 	packageName, err := GetPackageName(source.FullPath)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
-
+	
 	pkgs, err := parser.ParseDir(token.NewFileSet(), dirPath, func(info fs.FileInfo) bool {
 		return true
 	}, parser.ParseComments)
 	if err != nil {
-		return nil, fmt.Errorf("Error parse dir %s ", err)
+		return nil, "", fmt.Errorf("Error parse dir %s ", err)
 	}
-
+	
 	currentPackage, ok := pkgs[packageName]
 	if !ok {
-		return nil, fmt.Errorf("Package not found %s ", packageName)
+		return nil, "", fmt.Errorf("Package not found %s ", packageName)
 	}
 	var files []*ast.File
 	for _, f := range currentPackage.Files {
 		files = append(files, f)
 	}
-
-	return files, nil
+	
+	return files, packageName, nil
 }
 
 func FileToString(file *ast.File) (string, error) {
@@ -91,7 +90,7 @@ func FileToString(file *ast.File) (string, error) {
 	if err != nil {
 		return "", err
 	}
-
+	
 	return bResult.String(), nil
 }
 
@@ -102,6 +101,6 @@ func GoFmt(body []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	
 	return bResult.Bytes(), nil
 }
