@@ -1,0 +1,110 @@
+# This is a basic workflow to help you get started with Actions
+
+name: CI
+on:
+  release:
+    types: [published]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set output
+        id: vars
+        run: |
+          PROJECT_NAME=easymap
+          PROJECT_DESCRIPTION="Tool for mapping go structs"
+
+          echo ::set-output name=tag::${GITHUB_REF#refs/*/}
+          echo ::set-output name=repo::${GITHUB_REPOSITORY}
+          echo ::set-output name=project_name::${PROJECT_NAME}
+          echo ::set-output name=project_name_upper::${PROJECT_NAME^}
+          echo ::set-output name=project_description::${PROJECT_DESCRIPTION}
+      - name: Check output
+        env:
+          RELEASE_VERSION: ${{ steps.vars.outputs.tag }}
+        run: |
+          echo $RELEASE_VERSION
+          echo ${{ steps.vars.outputs.tag }}
+      - name: Setup Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: '1.17.2' # The Go version to download (if necessary) and use.
+
+      - name: tests
+        run: |
+          make     
+
+      - name: Build for mac os 
+        id: buildos
+        run: |
+          mkdir osx
+          GO111MODULE=on CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags="-w -s -X main.AppVersion=${{ steps.vars.outputs.tag }}" -o ./osx/${{ steps.vars.outputs.project_name }} cmd/app/*
+          tar -czvf app-osx.tar.gz -C osx/ .
+          SHASUM=$(sha256sum app-osx.tar.gz | head -c 64)
+          echo ::set-output name=shasum::${SHASUM}
+          
+      - name: Build for Linux
+        run: |
+          mkdir linux
+          GO111MODULE=on CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-w -s -X main.AppVersion=${{ steps.vars.outputs.tag }}" -o ./linux/${{ steps.vars.outputs.project_name }} cmd/app/*
+          tar -czvf app-linux.tar.gz -C linux/ .
+        
+      - name: Get release
+        id: get_release
+        uses: agners/get-draft-release@v1.2.2
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Upload release binary OSX
+        uses: actions/upload-release-asset@v1.0.2
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          upload_url: ${{ steps.get_release.outputs.upload_url }}
+          asset_path: ./app-osx.tar.gz
+          asset_name: ${{ steps.vars.outputs.project_name }}-${{ steps.vars.outputs.tag }}-osx.tar.gz
+          asset_content_type: application/octet-stream
+          
+      - name: Upload release binary Linux
+        uses: actions/upload-release-asset@v1.0.2
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          upload_url: ${{ steps.get_release.outputs.upload_url }}
+          asset_path: ./app-linux.tar.gz
+          asset_name: ${{ steps.vars.outputs.project_name }}-${{ steps.vars.outputs.tag }}-linux.tar.gz
+          asset_content_type: application/octet-stream
+
+      - name: Generate HomeBrew module
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          git config --global user.email "dhnikolas@gmail.com"
+          git config --global user.name "Nikolai"
+
+          git clone https://dhnikolas:${{ secrets.SECRET_TOKEN }}@github.com/dhnikolas/homebrew-tools # This works
+          git remote set-url origin https://dhnikolas:${{ secrets.SECRET_TOKEN }}@github.com/dhnikolas/homebrew-tools.git
+          cd homebrew-tools
+          echo -e '
+          class ${{ steps.vars.outputs.project_name_upper }} < Formula
+            desc "Tool for quick clone layouts repo"
+            homepage "https://github.com/${{ steps.vars.outputs.repo }}"
+            url "https://github.com/${{ steps.vars.outputs.repo }}/releases/download/${{ steps.vars.outputs.tag }}/${{ steps.vars.outputs.project_name }}-${{ steps.vars.outputs.tag }}-osx.tar.gz"
+            sha256 "${{ steps.buildos.outputs.shasum }}"
+
+            def install
+              out_file = File.new("#{Dir.home}/.${{ steps.vars.outputs.project_name }}config", "w")
+              out_file.puts("{}")
+              bin.install "${{ steps.vars.outputs.project_name }}"
+            end
+
+            test do
+              system "#{bin}/${{ steps.vars.outputs.project_name }}", "--version"
+            end
+          end' > ${{ steps.vars.outputs.project_name }}.rb
+
+          git add .
+          git commit -m "Deploy new ${{ steps.vars.outputs.project_name }} version ${{ steps.vars.outputs.tag }}"
+          
+          git push origin main
