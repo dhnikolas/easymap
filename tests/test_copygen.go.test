@@ -123,6 +123,21 @@ func TestCopyGen(t *testing.T) {
 			return
 	}
 
+    if out.Disks[0].Zone[1].Config[0].Simple[0].Additional.Rows[0].BaseColor == nil {
+        t.Errorf("Field Disks_Zone2_Config_Simple1_Additional_Rows1_BaseColor  error Need:%s, Exist: %s",
+            "object",
+            "nil")
+            return
+    }
+
+    if out.Disks[0].Zone[1].Config[0].Simple[0].Additional.Rows[0].BaseColor.Name != in.TestData["Disks_Zone2_Config_Simple1_Additional_Rows1_BaseColor_Name"] {
+        t.Errorf("Field Disks_Zone2_Config_Simple1_Additional_Rows1_BaseColor_Name  error Need:%s, Exist: %s",
+            in.TestData["Disks_Zone2_Config_Simple1_Additional_Rows1_BaseColor_Name"],
+            out.Disks[0].Zone[1].Config[0].Simple[0].Additional.Rows[0].BaseColor.Name)
+            return
+    }
+
+
 	if out.Meta["2"] != "2" {
 	    t.Errorf("Meta error Need: %s. Exist: %s", "2", out.Meta["2"])
 	    return

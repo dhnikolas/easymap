@@ -2,12 +2,9 @@ package easymap
 
 import (
 	"errors"
-	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/token"
-	
-	"golang.org/x/tools/go/ast/inspector"
 )
 
 func CopyStruct(source ProcessFile, newName string) (*ast.File, error) {
@@ -60,41 +57,12 @@ func CopyStruct(source ProcessFile, newName string) (*ast.File, error) {
 }
 
 func GetStruct(files []*ast.File, structName string) []ast.Decl {
-	
-	i := inspector.New(files)
-	iFilter := []ast.Node{
-		&ast.GenDecl{},
-	}
-	
-	var structType *ast.StructType
-	
 	var decls []ast.Decl
-	i.Nodes(iFilter, func(node ast.Node, push bool) (proceed bool) {
-		genDecl := node.(*ast.GenDecl)
-		if genDecl == nil {
-			return false
-		}
-		typeSpec, ok := genDecl.Specs[0].(*ast.TypeSpec)
-		if !ok {
-			return false
-		}
-		st, ok := typeSpec.Type.(*ast.StructType)
-		if !ok {
-			return false
-		}
-		if typeSpec.Name.Name != structName {
-			return false
-		}
-		structType = st
-		
-		decls = append(decls, genDecl)
-		
-		return false
-	})
-	
+	structType, d := getStructFromFiles(files, structName)
 	if structType == nil {
 		return decls
 	}
+	decls = append(decls, d...)
 	
 	for _, f := range structType.Fields.List {
 		if !f.Names[0].IsExported() {
@@ -103,18 +71,12 @@ func GetStruct(files []*ast.File, structName string) []ast.Decl {
 		if f.Tag != nil {
 			f.Tag.Value = ""
 		}
-		switch ident := f.Type.(type) {
-		case *ast.Ident:
-			if ident.Obj != nil && ident.Obj.Kind == ast.Typ {
-				decls = append(decls, GetStruct(files, fmt.Sprint(ident.Obj.Name))...)
-			}
-		case *ast.StarExpr:
-			decls = append(decls, GetStruct(files, fmt.Sprint(ident.X))...)
-		case *ast.ArrayType:
-			switch arrayType := ident.Elt.(type) {
-			case *ast.StarExpr:
-				decls = append(decls, GetStruct(files, fmt.Sprint(arrayType.X))...)
-			}
+		field := detectFieldCategory(f)
+		if field == nil {
+			continue
+		}
+		if field.PrefixType != PrefixTypeSimple {
+			decls = append(decls, GetStruct(files, field.FieldType)...)
 		}
 	}
 	

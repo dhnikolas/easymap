@@ -14,9 +14,10 @@ import (
 )
 
 const (
-	PREFIX_TYPE_POINTER PrefixType = 0
-	PREFIX_TYPE_SLICE   PrefixType = 1
-	PREFIX_TYPE_STRUCT  PrefixType = 2
+	PrefixTypePointer PrefixType = 0
+	PrefixTypeSlice   PrefixType = 1
+	PrefixTypeStruct  PrefixType = 2
+	PrefixTypeSimple  PrefixType = 3
 )
 
 type PrefixType uint
@@ -55,6 +56,12 @@ type StructField struct {
 type SimpleField struct {
 	Name      string
 	FieldType string
+}
+
+type CommonField struct {
+	Name       string
+	FieldType  string
+	PrefixType PrefixType
 }
 
 func GetPackageFiles(source ProcessFile) ([]*ast.File, string, error) {

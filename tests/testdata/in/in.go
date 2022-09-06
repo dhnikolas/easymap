@@ -60,7 +60,12 @@ type MyAdd struct {
 }
 
 type MyRow struct {
-	Number int
+	Number    int
+	BaseColor *Color
+}
+
+type Color struct {
+	Name string
 }
 
 var TestData = map[string]string{
@@ -77,7 +82,8 @@ var TestData = map[string]string{
 	"Disks_Zone2_Mtu":                 "mtu2",
 	"Disks_Zone2_Config_TTL":          "ttl",
 	"Disks_Zone2_Config_Simple1_Main": "main",
-	"Disks_Zone2_Config_Simple1_Additional_Column": "col",
+	"Disks_Zone2_Config_Simple1_Additional_Column":               "col",
+	"Disks_Zone2_Config_Simple1_Additional_Rows1_BaseColor_Name": "greed",
 }
 
 func GenInTestStruct() *Source {
@@ -125,7 +131,14 @@ func GenInTestStruct() *Source {
 										Main: TestData["Disks_Zone2_Config_Simple1_Main"],
 										Additional: MyAdd{
 											Column: TestData["Disks_Zone2_Config_Simple1_Additional_Column"],
-											Rows:   []*MyRow{{Number: 2}},
+											Rows: []*MyRow{
+												{
+													Number: 2,
+													BaseColor: &Color{
+														Name: TestData["Disks_Zone2_Config_Simple1_Additional_Rows1_BaseColor_Name"],
+													},
+												},
+											},
 										},
 									},
 								},

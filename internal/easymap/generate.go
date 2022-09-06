@@ -34,12 +34,54 @@ func Scan(source ProcessFile) (*StructField, string, error) {
 }
 
 func ScanStruct(files []*ast.File, structName, fieldName string) (*StructField, error) {
+	s, _ := getStructFromFiles(files, structName)
+	if s == nil {
+		return nil, errors.New("Struct not exist " + structName)
+	}
+	currentStruct := &StructField{}
+	currentStruct.Name = structName
+	currentStruct.NameIn = fieldName
+	currentStruct.StructType = structName
 	
+	for _, f := range s.Fields.List {
+		if !f.Names[0].IsExported() {
+			continue
+		}
+		field := detectFieldCategory(f)
+		if field == nil {
+			continue
+		}
+		switch field.PrefixType {
+		case PrefixTypeSlice:
+			fallthrough
+		case PrefixTypeStruct:
+			fallthrough
+		case PrefixTypePointer:
+			newStruct, err := ScanStruct(files, field.FieldType, field.Name)
+			if err != nil {
+				continue
+			}
+			newStruct.PrefixType = field.PrefixType
+			newStruct.ParentStruct = currentStruct
+			currentStruct.ListStructFields = append(currentStruct.ListStructFields, newStruct)
+		case PrefixTypeSimple:
+			currentStruct.ListSimpleFields = append(currentStruct.ListSimpleFields, &SimpleField{
+				Name:      field.Name,
+				FieldType: field.FieldType,
+			})
+		}
+	}
+	
+	return currentStruct, nil
+}
+
+func getStructFromFiles(files []*ast.File, structName string) (*ast.StructType, []ast.Decl) {
+	var s *ast.StructType
+	var decls []ast.Decl
 	i := inspector.New(files)
 	iFilter := []ast.Node{
 		&ast.GenDecl{},
 	}
-	var genTask *Repository
 	i.Nodes(iFilter, func(node ast.Node, push bool) (proceed bool) {
 		genDecl := node.(*ast.GenDecl)
 		if genDecl == nil {
@@ -56,87 +98,75 @@ func ScanStruct(files []*ast.File, structName, fieldName string) (*StructField, 
 		if typeSpec.Name.Name != structName {
 			return false
 		}
-		genTask = &Repository{
-			typeSpec:   typeSpec,
-			structType: structType,
-		}
+		s = structType
+		decls = append(decls, genDecl)
 		return false
 	})
-	if genTask == nil {
-		return nil, errors.New("Struct not exist " + structName)
-	}
 	
-	currentStruct := &StructField{}
-	currentStruct.Name = structName
-	currentStruct.NameIn = fieldName
-	currentStruct.StructType = structName
-	
-	for _, f := range genTask.structType.Fields.List {
-		if !f.Names[0].IsExported() {
-			continue
+	return s, decls
+}
+
+func detectFieldCategory(f *ast.Field) *CommonField {
+	var resultField *CommonField
+	switch ident := f.Type.(type) {
+	case *ast.Ident:
+		switch {
+		case ident.Obj != nil && ident.Obj.Kind == ast.Typ:
+			resultField = &CommonField{
+				Name:       f.Names[0].Name,
+				FieldType:  fmt.Sprint(ident.Obj.Name),
+				PrefixType: PrefixTypeStruct,
+			}
+		default:
+			resultField = &CommonField{
+				Name:       f.Names[0].Name,
+				FieldType:  ident.Name,
+				PrefixType: PrefixTypeSimple,
+			}
 		}
-		switch ident := f.Type.(type) {
+	
+	case *ast.MapType:
+		resultField = &CommonField{
+			Name:       f.Names[0].Name,
+			FieldType:  fmt.Sprintf("map[%s]%s", ident.Key, ident.Value),
+			PrefixType: PrefixTypeSimple,
+		}
+	case *ast.StarExpr:
+		switch expr := ident.X.(type) {
+		case *ast.SelectorExpr:
+			resultField = &CommonField{
+				Name:       f.Names[0].Name,
+				FieldType:  fmt.Sprintf("*%s.%s", fmt.Sprint(expr.X), expr.Sel.Name),
+				PrefixType: PrefixTypeSimple,
+			}
+		default:
+			resultField = &CommonField{
+				Name:       f.Names[0].Name,
+				FieldType:  fmt.Sprint(ident.X),
+				PrefixType: PrefixTypePointer,
+			}
+		}
+	
+	case *ast.ArrayType:
+		switch arrayType := ident.Elt.(type) {
 		case *ast.Ident:
-			
-			switch {
-			case ident.Obj != nil && ident.Obj.Kind == ast.Typ:
-				newStruct, err := ScanStruct(files, fmt.Sprint(ident.Obj.Name), f.Names[0].Name)
-				if err != nil {
-					continue
-				}
-				newStruct.PrefixType = PREFIX_TYPE_STRUCT
-				newStruct.ParentStruct = currentStruct
-				currentStruct.ListStructFields = append(currentStruct.ListStructFields, newStruct)
-			default:
-				currentStruct.ListSimpleFields = append(currentStruct.ListSimpleFields, &SimpleField{
-					Name:      f.Names[0].Name,
-					FieldType: ident.Name,
-				})
+			resultField = &CommonField{
+				Name:       f.Names[0].Name,
+				FieldType:  arrayType.Name,
+				PrefixType: PrefixTypeSimple,
 			}
 		
-		case *ast.MapType:
-			currentStruct.ListSimpleFields = append(currentStruct.ListSimpleFields, &SimpleField{
-				Name:      f.Names[0].Name,
-				FieldType: fmt.Sprintf("map[%s]%s", ident.Key, ident.Value),
-			})
 		case *ast.StarExpr:
-			switch expr := ident.X.(type) {
-			case *ast.SelectorExpr:
-				currentStruct.ListSimpleFields = append(currentStruct.ListSimpleFields, &SimpleField{
-					Name:      f.Names[0].Name,
-					FieldType: fmt.Sprintf("*%s.%s", fmt.Sprint(expr.X), expr.Sel.Name),
-				})
-			default:
-				newStruct, err := ScanStruct(files, fmt.Sprint(ident.X), f.Names[0].Name)
-				if err != nil {
-					continue
-				}
-				newStruct.PrefixType = PREFIX_TYPE_POINTER
-				newStruct.ParentStruct = currentStruct
-				currentStruct.ListStructFields = append(currentStruct.ListStructFields, newStruct)
-			}
-		
-		case *ast.ArrayType:
-			switch arrayType := ident.Elt.(type) {
-			case *ast.Ident:
-				currentStruct.ListSimpleFields = append(currentStruct.ListSimpleFields, &SimpleField{
-					Name:      f.Names[0].Name,
-					FieldType: arrayType.Name,
-				})
 			
-			case *ast.StarExpr:
-				newStruct, err := ScanStruct(files, fmt.Sprint(arrayType.X), f.Names[0].Name)
-				if err != nil {
-					continue
-				}
-				newStruct.PrefixType = PREFIX_TYPE_SLICE
-				newStruct.ParentStruct = currentStruct
-				currentStruct.ListStructFields = append(currentStruct.ListStructFields, newStruct)
+			resultField = &CommonField{
+				Name:       f.Names[0].Name,
+				FieldType:  fmt.Sprint(arrayType.X),
+				PrefixType: PrefixTypeSlice,
 			}
 		}
 	}
 	
-	return currentStruct, nil
+	return resultField
 }
 
 func GenerateMainTemplate(s *StructField, inStructType string) []byte {
@@ -184,13 +214,13 @@ func GenerateCheckTemplate(s *StructField, parentOutName, parentInName string) s
 	
 	//Parent params
 	switch compareStruct.PrefixType {
-	case PREFIX_TYPE_POINTER:
+	case PrefixTypePointer:
 		fallthrough
-	case PREFIX_TYPE_STRUCT:
+	case PrefixTypeStruct:
 		newParentInName = parentInName + s.NameIn
 		newParentOutName = parentOutName + s.NameIn
 	
-	case PREFIX_TYPE_SLICE:
+	case PrefixTypeSlice:
 		newParentInName = s.ParentStruct.NameIn + "Item." + s.NameIn
 		newParentOutName = "new" + s.ParentStruct.NameIn + "." + s.NameIn
 		
@@ -210,13 +240,13 @@ func GenerateCheckTemplate(s *StructField, parentOutName, parentInName string) s
 	
 	templ := ""
 	switch s.PrefixType {
-	case PREFIX_TYPE_POINTER:
+	case PrefixTypePointer:
 		templ = ifConditionPointerTemplate
 	
-	case PREFIX_TYPE_SLICE:
+	case PrefixTypeSlice:
 		templ = slicePointerTemplate
 	
-	case PREFIX_TYPE_STRUCT:
+	case PrefixTypeStruct:
 		templ = structTemplate
 	}
 	
