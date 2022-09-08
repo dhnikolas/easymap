@@ -66,7 +66,7 @@ func MapToAnotherStruct(in *pb.StructName) *AnotherStruct {
 
 It is also possible to generate a dto structure based on another struct and a mapping method between them
 ```
-$ easymap copygen /Users/nnaumchenko/GolandProjects/integration-api/protocols/pb/integration_api_sg.pb.go:SG NewSG
+$ easymap copygen /example/protocols/pb/integration_api_sg.pb.go:SG NewSG
 
 type NewSG struct {
 	Id		string		
