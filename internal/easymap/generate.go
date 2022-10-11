@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"go/ast"
+	"strings"
 	"text/template"
 	
 	"golang.org/x/tools/go/ast/inspector"
@@ -45,6 +46,7 @@ func ScanStruct(files []*ast.File, structName, fieldName string) (*StructField, 
 	
 	for _, f := range s.Fields.List {
 		if !f.Names[0].IsExported() {
+			
 			continue
 		}
 		field := detectFieldCategory(f)
@@ -270,7 +272,8 @@ func GetCommonStruct(outStruct *StructField, inStruct *StructField) *StructField
 	
 	for _, scalarField := range outStruct.ListSimpleFields {
 		for _, inField := range inStruct.ListSimpleFields {
-			if scalarField.Name == inField.Name && scalarField.FieldType == inField.FieldType {
+			if strings.ToLower(scalarField.Name) == strings.ToLower(inField.Name) &&
+				strings.ToLower(scalarField.FieldType) == strings.ToLower(inField.FieldType) {
 				resultStruct.ListSimpleFields = append(resultStruct.ListSimpleFields, scalarField)
 			}
 		}
@@ -278,7 +281,7 @@ func GetCommonStruct(outStruct *StructField, inStruct *StructField) *StructField
 	
 	for _, outFieldStruct := range outStruct.ListStructFields {
 		for _, inFieldStruct := range inStruct.ListStructFields {
-			if outFieldStruct.NameIn == inFieldStruct.NameIn {
+			if strings.ToLower(outFieldStruct.NameIn) == strings.ToLower(inFieldStruct.NameIn) {
 				resultStruct.ListStructFields = append(resultStruct.ListStructFields, GetCommonStruct(outFieldStruct, inFieldStruct))
 			}
 		}
